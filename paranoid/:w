@@ -1,0 +1,24 @@
+import java.util.*;
+
+class paranoid
+{
+    static void main(String[] args)
+    {
+        Scanner sc = new Scanner(System.in);
+        int n = sc.nextInt();
+
+        Map<int, int> to_cow = new HashMap<int, int>();
+        SortedSet<int> positions = new TreeSet<int>();
+
+        for (int cow = 1; cow <= n; cow++)
+        {
+            int a = sc.nextInt();
+            int b = sc.nextInt();
+            to_cow[a] = to_cow[b] = cow;
+            positions.add(a);
+            positions.add(b);
+
+
+        }
+    }
+}

@@ -1,0 +1,24 @@
+import collections
+
+n = int(raw_input())
+coins = list(reversed([int(raw_input()) for i in xrange(n)]))
+cum = [0]
+acc = 0
+for coin in coins:
+    acc += coin
+    cum.append(acc)
+# the ith elem of cum is the total value of the last i coins
+
+dp = collections.defaultdict(lambda: 0)
+
+for coins_left in xrange(1, n + 1):
+    for taken_last in xrange(1, n + 1):
+        foo = min(dp[coins_left - to_take, to_take] 
+                  for to_take in range(1, 2 * taken_last + 1))
+        max_monies = cum[coins_left] - foo
+        dp[coins_left, taken_last] = max_monies
+
+print dp[n, 1]
+
+
+

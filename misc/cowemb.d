@@ -1,0 +1,3 @@
+main () {
+    writefln("Hello, world");
+}

@@ -1,0 +1,44 @@
+import collections
+import itertools
+import functools
+
+def memoize(function):
+    cache = {}
+    @functools.wraps(function)
+    def wrapper(*args):
+        if args in cache:
+            return cache[args]
+        else:
+            rv = function(*args)
+            cache[args] = rv
+            return rv
+    return wrapper
+
+      
+if __name__ == '__main__':
+    # input
+    n = int(raw_input())
+    coins = ([int(raw_input()) for i in xrange(n)])
+
+    # make cumulative sum, reversed
+    cum_sum = [0]
+    acc = 0
+    for coin in reversed(coins):
+        acc += coin
+        cum_sum.append(acc)
+
+    # recurrence relation
+    @memoize
+    def dp(coins_left, prev_take):
+        if coins_left <= 0:
+            return 0
+        else:
+            take_limit = min(prev_take * 2, coins_left)
+            minimax = min(dp(coins_left - our_take, our_take)
+                              for our_take in xrange(1, take_limit + 1))
+            return cum_sum[coins_left] - minimax
+
+    # answer
+    print dp(n, 1)
+
+

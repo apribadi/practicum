@@ -1,0 +1,48 @@
+def html(s)
+    (m = /^<HTML>(.*)<\/HTML>$/.match(s)) && body(m[1])
+end
+
+def body(s)
+    (m = /^<BODY>(.*)<\/BODY>$/.match(s)) && text(m[1])
+end
+
+def text(s)
+    (
+        /^[^<>]*$/ =~ (s)
+    ) or (
+        (m = /^[^<>]+(.*)$/.match(s)) && text(m[1])
+    ) or (
+        (m = /^(<.*?>.*?<.*?>)(.*)$/.match(s)) && tag(m[1]) && text(m[2])
+    )
+end
+
+def tag(s)
+    (
+        (m = /^<B>(.*)<\/B>$/.match(s)) && text(m[1])
+    ) or (
+        (m = /^<I>(.*)<\/I>$/.match(s)) && text(m[1])
+    ) or (
+        (m = /^<A HREF=(.*?)>(.*?)<\/A>$/.match(s)) && url(m[1]) && text(m[2])
+    )
+end
+
+def url(s)
+    /^http:\/\/(.*)\.com$/ =~ s
+end
+
+# input
+n = gets.to_i
+
+lines = []
+n.times do
+  lines.push(gets)
+end
+
+# computation
+lines.each do |line|
+    if html(line.gsub(" ", ""))
+        puts "Syntax Included"
+    else
+        puts "No Syntax Included"
+    end
+end
