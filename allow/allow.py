@@ -22,7 +22,7 @@ while coins:
             needed -= to_take * coin
 
     if needed > 0:
-        if not coin:
+        if not coins:
             break
         coin = min(coins.keys())
         if coins[coin] == 1:
