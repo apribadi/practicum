@@ -12,9 +12,7 @@ def score(word1, word2):
 if __name__ == '__main__':
     #keys = ['icily', 'strep', 'spork', 'spend', 'peeps', 'furls']
 
-    soph  = {'icily': 0, 'strep': 2, 'spork': 1, 'spend': 2,
-             'peeps': 2, 'furls': 1, 'ghost': 2, 'tanks': 2,
-             'gecko': 2}
+    soph  = {'chalk': 1, 'quine': 
 
     jrs   = {'icily': 0, 'strep': 2, 'spork': 3, 'spend': 2,
              'peeps': 1, 'furls': 1, 'ghost': 1, 'tanks': 1,
