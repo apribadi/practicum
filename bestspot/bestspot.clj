@@ -87,3 +87,4 @@
     (println best)
     (shutdown-agents)))
 
+(bestspot)
