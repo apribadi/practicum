@@ -1,11 +1,12 @@
 (ns bestspot
   (:use 
     [clojure.contrib.seq-utils]
-    [clojure.contrib.combinatorics])
+    [clojure.contrib.combinatorics]
+    [clojure.contrib.generic.math-functions])
   (:require
     [clojure.contrib.str-utils2 :as string]))
 
-(def *cores* 2)
+(def *threads* 4)
 
 (defn int-list []
   "Read a line of input of space-separated integers.  Strict."
@@ -21,13 +22,16 @@
     [(new-row [distance k]
        (let
          [global (agent distance)
-          aks (for [a nodes :let [dist (distance [a k])] :when dist]
-                   [a dist])
-          bks (for [b nodes :let [dist (distance [k b])] :when dist]
-                   [b dist])
-          b-chunks (partition-all
-                     (inc (quot node-count *cores*)) 
-                     bks)
+          aks (for [a nodes 
+                    :let [dist (distance [a k])] 
+                    :when dist]
+                [a dist])
+          bks (for [b nodes 
+                    :let [dist (distance [k b])] 
+                    :when dist]
+                [b dist])
+          chunk-len (-> (/ (count aks) *threads*) ceil int)
+          b-chunks (partition-all chunk-len bks)
          ]
          (->
            (fn [chunk]
