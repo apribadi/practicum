@@ -1,40 +1,96 @@
 (ns bestspot
-  (:use [clojure.contrib.seq-utils]
-        [clojure.contrib.combinatorics]))
+  (:use 
+    [clojure.contrib.seq-utils]
+    [clojure.contrib.combinatorics])
+  (:require
+    [clojure.contrib.str-utils2 :as string]))
+
+(def *cores* 2)
+
+(defn partition* [n coll]
+  (lazy-seq
+    (when-let [s (seq coll)]
+      (let [p (take n s)]
+        (cons p (partition n (drop n s)))))))
 
 (defn int-list []
   "Read a line of input of space-separated integers.  Strict."
-  (doall (for [s (.split (read-line) " ")] (Integer/parseInt s))))
-
-(defn map-from-pairs [pairs]
-  (apply hash-map (apply concat pairs)))
+  (doall (for [s (string/split (read-line) #"\s+")] (Integer/parseInt s))))
 
 (defmacro map-comp [& args]
-  `(map-from-pairs (for ~@args)))
-
-(defn f-w [nodes paths fun]
-  "fun takes [prev a b k]"
-  (reduce (fn [acc k] (map-comp [a nodes b nodes]
-                                [[a b] (fun acc a b k)]))
-          paths
-          nodes))
+  `(->> (for ~@args) (apply concat ,,) (apply hash-map ,,)))
 
 (def inf Float/POSITIVE_INFINITY)
 
-(let [[p f c] (int-list)
-      nodes     (range 1 (inc p))
-      favorites (doall (for [_ (range f)] (first (int-list))))
-      paths-in  (map-comp [_ (range c)] (let [[a b t] (int-list)] [[a b] t]))
-      paths     (conj paths-one 
-                      (map-comp [[[a b] t] paths-one] [[b a] t])
-                      (map-comp [a nodes] [[a a] 0]))
-      rule      (fn [prev a b k] 
-                  (min (prev [a b] inf) (+ (prev [a k] inf) (prev [k b] inf))))
-      times     (f-w nodes paths rule)
-      get-avg   (fn [start] 
-                  (apply + (for [b favorites] (times [start b]))))
-      avgs      (map-comp [a nodes] [a (get-avg a)])
-      min-dist  (apply min (vals avgs))
-      best      (apply min (filter #(= min-dist (avgs %)) (keys avgs)))
-     ]
-  (println best))
+(defn floyd-warshall [nodes paths node-count]
+  (letfn 
+    [(new-row [distance k]
+       (let
+         [global (atom distance)
+          aks (for [a nodes :let [dist (distance [a k])] :when dist]
+                   [a dist])
+          bks (for [b nodes :let [dist (distance [k b])] :when dist]
+                   [b dist])
+          chunks (partition* 
+                   (/ (* node-count node-count) *cores*)
+                   (cartesian-product aks bks))
+         ]
+         (->
+           (fn [chunk]
+             (let
+               [inter (map-comp
+                        [[[a a-dist] [b b-dist]] chunk]
+                        [[a b] (+ a-dist b-dist)])
+               ]
+               (swap! global #(merge-with min % inter))))
+           (pmap ,, chunks)
+           (dorun ,,))
+         @global))
+    ]
+    (reduce new-row paths nodes)))
+
+(defn bestspot-input []
+  (let [inputs (atom {})
+        put (fn [key val] (swap! inputs assoc key val))
+        get (fn [key] (@inputs key))]
+    (let [[p f c] (int-list)]
+      (put :p p)
+      (put :f f)
+      (put :c c))
+    (->>
+      (first (int-list))
+      (for [_ (range (get :f))] ,,)
+      (doall ,,)
+      (put :favorites ,,))
+    (->>
+      [[a b] t]
+      (let [[a b t] (int-list)] ,,)
+      (map-comp [_ (range (get :c))] ,,)
+      (put :paths-one-way ,,))
+    @inputs))
+
+(defn bestspot []
+  (let 
+    [
+     {:keys [p f c favorites paths-one-way]} (bestspot-input)
+     nodes  (range 1 (inc p))
+     paths  (merge 
+              paths-one-way
+              (map-comp [[[a b] t] paths-one-way] [[b a] t])
+              (map-comp [a nodes] [[a a] 0]))
+     times  (floyd-warshall nodes paths p)
+     totals (->
+              #(apply + (for [b favorites] (times [% b] inf)))
+              (group-by ,, nodes))
+     best   (->> 
+              (keys totals) 
+              (apply min ,,) 
+              (totals ,,)
+              (apply min ,,))
+    ]
+    (println (* p p))
+    (println best)
+    (shutdown-agents)))
+
+(bestspot)
+
