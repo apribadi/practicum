@@ -5,7 +5,6 @@
   (:require
     [clojure.contrib.str-utils2 :as string]))
 
-(def *cores* 2)
 
 (defn int-list []
   "Read a line of input of space-separated integers.  Strict."
@@ -16,32 +15,16 @@
 
 (def inf Float/POSITIVE_INFINITY)
 
-(defn floyd-warshall [nodes paths node-count]
+(defn floyd-warshall [nodes paths]
   (letfn 
-    [(new-row [distance k]
-       (let
-         [global (agent distance)
-          aks (for [a nodes :let [dist (distance [a k])] :when dist]
-                   [a dist])
-          bks (for [b nodes :let [dist (distance [k b])] :when dist]
-                   [b dist])
-          b-chunks (partition-all
-                     (inc (quot node-count *cores*)) 
-                     bks)
-         ]
-         (->
-           (fn [chunk]
-             (let
-               [inter (map-comp
-                        [[a a-dist] aks
-                         [b b-dist] chunk]
-                        [[a b] (+ a-dist b-dist)])
-               ]
-               (send global #(merge-with min % inter))))
-           (pmap ,, b-chunks)
-           (dorun ,,))
-         (await global)
-         @global))
+    [(new-row [distances k]
+       (->>
+         (map-comp 
+           [a nodes :let [a-dist (distances [a k])] :when a-dist
+            b nodes :let [b-dist (distances [k b])] :when b-dist
+           ]
+           [[a b] (+ a-dist b-dist)])
+         (merge-with min distances ,,)))
     ]
     (reduce new-row paths nodes)))
 
@@ -74,7 +57,7 @@
               paths-one-way
               (map-comp [[[a b] t] paths-one-way] [[b a] t])
               (map-comp [a nodes] [[a a] 0]))
-     times  (floyd-warshall nodes paths p)
+     times  (floyd-warshall nodes paths)
      totals (->
               #(apply + (for [b favorites] (times [% b] inf)))
               (group-by ,, nodes))
@@ -84,8 +67,6 @@
               (totals ,,)
               (apply min ,,))
     ]
-;    (println (* p p))
-;    (println totals)
     (println best)
     (shutdown-agents)))
 
