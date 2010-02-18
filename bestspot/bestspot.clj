@@ -20,25 +20,27 @@
   (letfn 
     [(new-row [distance k]
        (let
-         [global (atom distance)
+         [global (agent distance)
           aks (for [a nodes :let [dist (distance [a k])] :when dist]
                    [a dist])
           bks (for [b nodes :let [dist (distance [k b])] :when dist]
                    [b dist])
           chunks (partition-all
-                   (quot (* node-count node-count) *cores*)
-                   (cartesian-product aks bks))
+                   (inc (quot node-count *cores*)) 
+                   bks)
          ]
          (->
            (fn [chunk]
              (let
                [inter (map-comp
-                        [[[a a-dist] [b b-dist]] chunk]
+                        [[a a-dist] aks
+                         [b b-dist] chunk]
                         [[a b] (+ a-dist b-dist)])
                ]
-               (swap! global #(merge-with min % inter))))
+               (send global #(merge-with min % inter))))
            (pmap ,, chunks)
            (dorun ,,))
+         (await global)
          @global))
     ]
     (reduce new-row paths nodes)))
