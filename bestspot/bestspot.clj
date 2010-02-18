@@ -7,12 +7,6 @@
 
 (def *cores* 2)
 
-(defn partition* [n coll]
-  (lazy-seq
-    (when-let [s (seq coll)]
-      (let [p (take n s)]
-        (cons p (partition n (drop n s)))))))
-
 (defn int-list []
   "Read a line of input of space-separated integers.  Strict."
   (doall (for [s (string/split (read-line) #"\s+")] (Integer/parseInt s))))
@@ -31,8 +25,8 @@
                    [a dist])
           bks (for [b nodes :let [dist (distance [k b])] :when dist]
                    [b dist])
-          chunks (partition* 
-                   (/ (* node-count node-count) *cores*)
+          chunks (partition-all
+                   (quot (* node-count node-count) *cores*)
                    (cartesian-product aks bks))
          ]
          (->
@@ -88,9 +82,8 @@
               (totals ,,)
               (apply min ,,))
     ]
-    (println (* p p))
+;    (println (* p p))
+;    (println totals)
     (println best)
     (shutdown-agents)))
-
-(bestspot)
 
