@@ -5,7 +5,7 @@
   (:require
     [clojure.contrib.str-utils2 :as string]))
 
-(def *cores* 2)
+(def *cores* 4)
 
 (defn int-list []
   "Read a line of input of space-separated integers.  Strict."
@@ -25,16 +25,17 @@
                    [a dist])
           bks (for [b nodes :let [dist (distance [k b])] :when dist]
                    [b dist])
-          chunks (partition-all
-                   (inc (quot node-count *cores*)) 
-                   bks)
+          chunks (map 
+                   #(cartesian-product aks %)
+                   (partition-all
+                     (inc (quot node-count *cores*)) 
+                     bks))
          ]
          (->
            (fn [chunk]
              (let
                [inter (map-comp
-                        [[a a-dist] aks
-                         [b b-dist] chunk]
+                        [[[a a-dist] [b b-dist]] chunk]
                         [[a b] (+ a-dist b-dist)])
                ]
                (send global #(merge-with min % inter))))
@@ -90,3 +91,4 @@
     (shutdown-agents)))
 
 (bestspot)
+
