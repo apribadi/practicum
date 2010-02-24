@@ -1,56 +1,74 @@
 (ns skiing
-  (:use [clojure.contrib.seq-utils]
-        [clojure.contrib.combinatorics]
-        [clojure.contrib.generic.math-functions]))
+  (:use 
+    [clojure.contrib.seq-utils]
+    [clojure.contrib.combinatorics]
+    [clojure.contrib.math])
+  (:require
+    [clojure.contrib.str-utils2 :as string]))
 
-(defn int-list []
-  "Read a line of input of space-separated integers.  Strict."
-  (doall (for [s (.split (read-line) " ")] (Integer/parseInt s))))
-
-(defn map-from-pairs [pairs]
-  (apply hash-map (apply concat pairs)))
-
-(defmacro map-comp [& args]
-  `(map-from-pairs (for ~@args)))
-
-(defn f-w [nodes paths fun]
-  "fun takes [prev a b k]"
-  (reduce (fn [acc k] (map-comp [a nodes b nodes]
-                                [[a b] (fun acc a b k)]))
-          paths
-          nodes))
-
+; constants
 (def inf Float/POSITIVE_INFINITY)
 
-; script 
-(def heights (atom {}))
+; utility functions
+(defmacro map-comp [& args]
+  `(->> (for ~@args) (apply concat ,,) (apply hash-map ,,)))
 
-(let [[v r c] (int-list)]
-  (dotimes [row r]
-    (dotimes [col c]
-      (swap! heights #(assoc % [r c] (read))))))
+(defmacro ffor [& args]
+  `(doall (for ~@args)))
 
-(let [initial-speed (rationalize 1000000)
-      initial-height (@heights [0 0])
-      calc-speed (fn [height] 
-                   (* initial-speed (pow 2 (- initial-height height))))
-      speeds (map-comp [[loc height] @heights] [loc (calc-speed height)])
-  
+(defn int-list []
+  "Read a line of input of space-separated integers."
+  (ffor [s (string/split (read-line) #"\s+")] (Integer/parseInt s)))
 
-(let [[p f c] (int-list)
-      nodes     (range 1 (inc p))
-      favorites (doall (for [_ (range f)] (first (int-list))))
-      paths-in  (map-comp [_ (range c)] (let [[a b t] (int-list)] [[a b] t]))
-      paths     (conj paths-one 
-                      (map-comp [[[a b] t] paths-one] [[b a] t])
-                      (map-comp [a nodes] [[a a] 0]))
-      rule      (fn [prev a b k] 
-                  (min (prev [a b] inf) (+ (prev [a k] inf) (prev [k b] inf))))
-      times     (f-w nodes paths rule)
-      get-avg   (fn [start] 
-                  (apply + (for [b favorites] (times [start b]))))
-      avgs      (map-comp [a nodes] [a (get-avg a)])
-      min-dist  (apply min (vals avgs))
-      best      (apply min (filter #(= min-dist (avgs %)) (keys avgs)))
-     ]
-  (println best))
+
+(defn floyd-warshall [nodes paths]
+  (letfn 
+    [(new-row [distance k]
+       (->>
+         (map-comp
+           [a nodes :let [a-dist (distance [a k])] :when a-dist
+            b nodes :let [b-dist (distance [k b])] :when b-dist]
+           [[a b] (+ a-dist b-dist)])
+         (merge-with min distance ,,)))
+    ]
+    (reduce new-row paths nodes)))
+
+(defn skiing-input []
+  (let
+    [global (atom {})
+     add   #(swap! global assoc ,, %1 %2)
+     add-m #(swap! global merge ,, %)
+    ]
+    (add-m 
+      (zipmap [:v :r :c] (int-list)))
+    (add :elevations
+      (map-comp
+        [row (range (@global :r)) :let [nums (vec (int-list))]
+         col (range (@global :c)) :let [elv  (nums col)]
+        ]
+        [[row col] elv]))
+    @global))
+
+(defn skiing []
+  (let 
+    [
+     {:keys [v r c elevations]} (skiing-input)
+     initial-elev (elevations [0 0])
+     nodes (cartesian-product (range r) (range c))
+     velocity
+       (map-comp
+         [[coord elev] elevations]
+         [coord (* v (expt 2 (- initial-elev elev)))])
+     paths
+       (map-comp
+         [start nodes
+          end   (map #(map + start %) [[-1 0] [0 -1] [0 1] [1 0]])
+          :when (every? identity (map #(< -1 %1 %2) end [r c]))
+         ]
+         [[start end] (/ 1 (velocity start))])
+     time  (floyd-warshall nodes paths)
+    ]
+    (println (time [[0 0] [(dec r) (dec c)]]))))
+
+(skiing)
+
