@@ -24,7 +24,7 @@
 
 
 ; bestspot
-(defn floyd-warshall [nodes paths node-count]
+(defn ofloyd-warshall [nodes paths]
   (letfn 
     [(new-row [distance k]
        (->>
@@ -36,6 +36,31 @@
     ]
     (reduce new-row paths nodes)))
 
+(defn floyd-warshall [nodes paths]
+  (letfn
+    [(new-row [distance k]
+       (let
+         [rows    (vec (for [_ nodes] (atom nil)))
+          chunks  (partition-all 
+                   (-> (/ (count nodes) *threads*) ceil int) 
+                   nodes)
+          prev-dist #((deref (distance %1)) %2)
+          dochunk (fn [chunk]
+                    (doseq [a chunk]
+                      (reset! (rows a) 
+                        (vec
+                          (for [b nodes]
+                            (min (prev-dist a b)
+                                 (+ (prev-dist a k) (prev-dist k b))))))))
+         ]
+         ;(println "new row!!")
+         ;(println distance)
+         (dorun (pmap dochunk chunks))
+         rows))
+    ]
+    (reduce new-row paths nodes)))
+
+; get input zero-indexed
 (defn bestspot-input []
   (let
     [global (atom {})
@@ -46,24 +71,30 @@
       (zipmap [:p :f :c] (int-list)))
     (add :favorites
       (ffor [_ (range (@global :f))] 
-          (first (int-list))))
+          (dec (first (int-list)))))
     (add :paths-one-way
       (map-comp [_ (range (@global :c))]
-        (let [[a b t] (int-list)] [[a b] t])))
+        (let [[a b t] (int-list)] [[(dec a) (dec b)] t])))
     @global))
 
 (defn bestspot []
   (let 
     [
      {:keys [p f c favorites paths-one-way]} (bestspot-input)
-     nodes  (range 1 (inc p))
-     paths  (merge 
+     nodes  (range p)
+     pathsm (merge 
               paths-one-way
               (map-comp [[[a b] t] paths-one-way] [[b a] t])
               (map-comp [a nodes] [[a a] 0]))
-     times  (floyd-warshall nodes paths p)
+     paths  (->>
+              (for [b nodes] (pathsm [a b] inf))
+              (vec ,,)
+              (atom ,,)
+              (for [a nodes] ,,)
+              (vec ,,))
+     times  (floyd-warshall nodes paths)
      totals (->
-              #(apply + (for [b favorites] (times [% b] inf)))
+              #(apply + (for [b favorites] (@(times %) b)))
               (group-by ,, nodes))
      best   (->> 
               (keys totals) 
@@ -71,7 +102,8 @@
               (totals ,,)
               (apply min ,,))
     ]
-    (println best)
+    (println totals)
+    (println (inc best))
     (shutdown-agents)))
 
 (bestspot)
