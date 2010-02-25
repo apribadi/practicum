@@ -8,6 +8,7 @@
 
 ; constants
 (def inf Float/POSITIVE_INFINITY)
+(def *threads* 4)
 
 ; utility functions
 (defmacro map-comp [& args]
@@ -22,16 +23,33 @@
 
 
 (defn floyd-warshall [nodes paths]
-  (letfn 
-    [(new-row [distance k]
+  (let
+    [new-row (fn [distance k]
+       (let
+         [rows       (vec (for [_ nodes] (atom nil)))
+          chunk-size (-> (/ (count nodes) *threads*) ceil int)
+          chunks     (partition-all chunk-size nodes)
+          prev-dist  (fn [a b] (@(distance a) b))
+          calc       (fn [a b]
+                       (min (prev-dist a b)
+                            (+ (prev-dist a k) (prev-dist k b))))
+          dochunk    (fn [chunk]
+                       (doseq [a chunk]
+                         (reset! (rows a) 
+                           (vec (for [b nodes] (calc a b))))))
+         ]
+         (dorun (pmap dochunk chunks))
+         rows))
+     paths-vec
        (->>
-         (map-comp
-           [a nodes :let [a-dist (distance [a k])] :when a-dist
-            b nodes :let [b-dist (distance [k b])] :when b-dist]
-           [[a b] (+ a-dist b-dist)])
-         (merge-with min distance ,,)))
+         (for [b nodes] (paths [a b] inf)) vec atom
+         (for [a nodes] ,,) vec)
+     answer-vec
+       (reduce new-row paths-vec nodes)
     ]
-    (reduce new-row paths nodes)))
+    (map-comp
+      [a nodes b nodes :let [dist (@(answer-vec a) b)] :when (not= dist inf)]
+      [[a b] dist])))
 
 (defn skiing-input []
   (let
@@ -59,16 +77,18 @@
        (map-comp
          [[node elev] elevations]
          [node (* v (expt 2 (- initial-elev elev)))])
+     to-idx (fn [[a b]] (+ (* a c) b))
      paths
        (map-comp
          [start nodes
           end   (map #(map + start %) [[-1 0] [0 -1] [0 1] [1 0]])
           :when (every? identity (map #(< -1 %1 %2) end [r c]))
          ]
-         [[start end] (/ 1 (velocity start))])
-     time  (floyd-warshall nodes paths)
+         [[(to-idx start) (to-idx end)] (/ 1 (velocity start))])
+     time  (floyd-warshall (map to-idx nodes) paths)
     ]
-    (println (time [[0 0] [(dec r) (dec c)]]))))
+    (println (time [(to-idx [0 0]) (to-idx [(dec r) (dec c)])]))
+    (shutdown-agents)))
 
 (skiing)
 
