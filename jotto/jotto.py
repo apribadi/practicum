@@ -1,45 +1,77 @@
-#! /usr/local/bin/python
+#!/usr/bin/python
 
 import string
 
-def score(word1, word2):
-    def letters(word):
-        return tuple(word.count(letter) 
-                     for letter 
-                     in string.ascii_lowercase)
-    return sum(map(min, letters(word1), letters(word2)))
+soph  = {
+    'chalk': 1, 
+    'quine': 1,
+    'aught': 2,
+    'jotto': 2,
+    'savvy': 2,
+    'clash': 2 
+    }
 
-if __name__ == '__main__':
-    #keys = ['icily', 'strep', 'spork', 'spend', 'peeps', 'furls']
+jrs   = {
+    'chalk': 0,
+    'quine': 1,
+    'aught': 1,
+    'jotto': 2,
+    'savvy': 0,
+    'clash': 0
+    }
 
-    soph  = {'chalk': 1, 'quine': 
+srs   = {
+    'chalk': 1, 
+    'quine': 2,
+    'aught': 1,
+    'jotto': 0,
+    'savvy': 1,
+    'clash': 1
+    }
 
-    jrs   = {'icily': 0, 'strep': 2, 'spork': 3, 'spend': 2,
-             'peeps': 1, 'furls': 1, 'ghost': 1, 'tanks': 1,
-             'gecko': 1}
+other = {
+    'chalk': 1, 
+    'quine': 2,
+    'aught': 2,
+    'jotto': 1,
+    'savvy': 1,
+    'clash': 1
+    }
 
-    srs   = {'icily': 1, 'strep': 2, 'spork': 0, 'spend': 2,
-             'peeps': 2, 'furls': 0, 'ghost': 1, 'tanks': 2,
-             'gecko': 1}
+classes = {
+    'sophomores': soph, 
+    'juniors': jrs, 
+    'seniors': srs, 
+    'other': other
+    }
 
-    other = {'icily': 1, 'strep': 1, 'spork': 0, 'spend': 2,
-             'peeps': 1, 'furls': 1, 'ghost': 0, 'tanks': 1,
-             'gecko': 1, 'games': 1}
+def stat(word):
+    return tuple(word.count(c) for c in string.ascii_lowercase)
 
-    #soph['tanks'] = 2
+def score(stat1, stat2):
+    return sum(map(min, stat1, stat2))
 
-    classes = [soph, jrs, srs, other]
+data = {}
+with open('words.txt', 'r') as f:
+    for line in f:
+        word = line.strip()
+        data[word] = stat(word)
 
-    with open('words.txt', 'r') as f:
-        word_list = [line.strip() for line in f]
 
-    def solve(exp_scores):
-        def possible(word1):
-            return all(score(word1, word2) == exp_score 
-                       for word2, exp_score 
-                       in exp_scores.iteritems())
-        return filter(possible, word_list)
+def solve(word_map):
+    possible = []
+    for word1, word1_stat in data.iteritems():
+        if all(score(word1_stat, stat(word2)) == expected
+               for word2, expected
+               in word_map.iteritems()):
+            possible.append(word1)
+    return possible
 
-    for exp_scores in classes:
-        print solve(exp_scores)
+for class_name, word_map in classes.iteritems():
+    print "For %s, the possible words are:" % class_name
+    print
+    words = solve(word_map)
+    for word in words:
+        print word
+    print
 

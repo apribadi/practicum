@@ -6,20 +6,24 @@
   (:require
     [clojure.contrib.str-utils2 :as string]))
 
+; constants
 (def *threads* 4)
+(def inf Float/POSITIVE_INFINITY)
 
-(defn int-list []
-  "Read a line of input of space-separated integers.  Strict."
-  (doall (for [s (string/split (read-line) #"\s+")] (Integer/parseInt s))))
 
+; utility functions
 (defmacro map-comp [& args]
   `(->> (for ~@args) (apply concat ,,) (apply hash-map ,,)))
 
 (defmacro ffor [& args]
   `(doall (for ~@args)))
 
-(def inf Float/POSITIVE_INFINITY)
+(defn int-list []
+  "Read a line of input of space-separated integers.  Strict."
+  (ffor [s (string/split (read-line) #"\s+")] (Integer/parseInt s)))
 
+
+; bestspot
 (defn floyd-warshall [nodes paths node-count]
   (letfn 
     [(new-row [distance k]

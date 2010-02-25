@@ -57,8 +57,8 @@
      nodes (cartesian-product (range r) (range c))
      velocity
        (map-comp
-         [[coord elev] elevations]
-         [coord (* v (expt 2 (- initial-elev elev)))])
+         [[node elev] elevations]
+         [node (* v (expt 2 (- initial-elev elev)))])
      paths
        (map-comp
          [start nodes
