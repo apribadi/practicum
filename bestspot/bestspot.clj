@@ -10,7 +10,6 @@
 (def *threads* 4)
 (def inf Float/POSITIVE_INFINITY)
 
-
 ; utility functions
 (defmacro map-comp [& args]
   `(->> (for ~@args) (apply concat ,,) (apply hash-map ,,)))
@@ -23,42 +22,34 @@
   (ffor [s (string/split (read-line) #"\s+")] (Integer/parseInt s)))
 
 
-; bestspot
-(defn ofloyd-warshall [nodes paths]
-  (letfn 
-    [(new-row [distance k]
-       (->>
-         (map-comp
-           [a nodes :let [a-dist (distance [a k])] :when a-dist
-            b nodes :let [b-dist (distance [k b])] :when b-dist]
-           [[a b] (+ a-dist b-dist)])
-         (merge-with min distance ,,)))
-    ]
-    (reduce new-row paths nodes)))
-
 (defn floyd-warshall [nodes paths]
-  (letfn
-    [(new-row [distance k]
+  (let
+    [new-row (fn [distance k]
        (let
-         [rows    (vec (for [_ nodes] (atom nil)))
-          chunks  (partition-all 
-                   (-> (/ (count nodes) *threads*) ceil int) 
-                   nodes)
-          prev-dist #((deref (distance %1)) %2)
-          dochunk (fn [chunk]
-                    (doseq [a chunk]
-                      (reset! (rows a) 
-                        (vec
-                          (for [b nodes]
-                            (min (prev-dist a b)
-                                 (+ (prev-dist a k) (prev-dist k b))))))))
+         [rows       (vec (for [_ nodes] (atom nil)))
+          chunk-size (-> (/ (count nodes) *threads*) ceil int)
+          chunks     (partition-all chunk-size nodes)
+          prev-dist  (fn [a b] (@(distance a) b))
+          calc       (fn [a b]
+                       (min (prev-dist a b)
+                            (+ (prev-dist a k) (prev-dist k b))))
+          dochunk    (fn [chunk]
+                       (doseq [a chunk]
+                         (reset! (rows a) 
+                           (vec (for [b nodes] (calc a b))))))
          ]
-         ;(println "new row!!")
-         ;(println distance)
          (dorun (pmap dochunk chunks))
          rows))
+     paths-vec
+       (->>
+         (for [b nodes] (paths [a b] inf)) vec atom
+         (for [a nodes] ,,) vec)
+     answer-vec
+       (reduce new-row paths-vec nodes)
     ]
-    (reduce new-row paths nodes)))
+    (map-comp
+      [a nodes b nodes :let [dist (@(answer-vec a) b)] :when (not= dist inf)]
+      [[a b] dist])))
 
 ; get input zero-indexed
 (defn bestspot-input []
@@ -82,19 +73,13 @@
     [
      {:keys [p f c favorites paths-one-way]} (bestspot-input)
      nodes  (range p)
-     pathsm (merge 
+     paths  (merge 
               paths-one-way
               (map-comp [[[a b] t] paths-one-way] [[b a] t])
               (map-comp [a nodes] [[a a] 0]))
-     paths  (->>
-              (for [b nodes] (pathsm [a b] inf))
-              (vec ,,)
-              (atom ,,)
-              (for [a nodes] ,,)
-              (vec ,,))
      times  (floyd-warshall nodes paths)
      totals (->
-              #(apply + (for [b favorites] (@(times %) b)))
+              #(apply + (for [b favorites] (times [% b] inf)))
               (group-by ,, nodes))
      best   (->> 
               (keys totals) 
@@ -102,7 +87,6 @@
               (totals ,,)
               (apply min ,,))
     ]
-    (println totals)
     (println (inc best))
     (shutdown-agents)))
 
