@@ -18,38 +18,41 @@
   `(doall (for ~@args)))
 
 (defn int-list []
-  "Read a line of input of space-separated integers."
   (ffor [s (string/split (read-line) #"\s+")] (Integer/parseInt s)))
 
 
-(defn floyd-warshall [nodes paths]
+(defn floyd-warshall [nodes graph]
   (let
-    [new-row (fn [distance k]
+    [
+     n (count nodes)
+     indices (range n)
+     node-to-index (zipmap nodes indices)
+     index-to-node (zipmap indices nodes)
+
+     chunk-size (-> (/ n *threads*) ceil int)
+     chunks     (partition-all chunk-size indices)
+    
+     graph-by-index 
+       (fn [& args] (apply graph (map index-to-node args)))
+
+     new-row (fn [prev k]
        (let
-         [rows       (vec (for [_ nodes] (atom nil)))
-          chunk-size (-> (/ (count nodes) *threads*) ceil int)
-          chunks     (partition-all chunk-size nodes)
-          prev-dist  (fn [a b] (@(distance a) b))
-          calc       (fn [a b]
-                       (min (prev-dist a b)
-                            (+ (prev-dist a k) (prev-dist k b))))
-          dochunk    (fn [chunk]
-                       (doseq [a chunk]
-                         (reset! (rows a) 
-                           (vec (for [b nodes] (calc a b))))))
+         [rows (vec (for [_ indices] (atom nil)))
+
+          dochunk (fn [chunk]
+            (doseq [a chunk]
+              (reset! (rows a)
+                (vec (for [b indices] 
+                       (min (prev a b) (+ (prev a k) (prev k b))))))))
          ]
          (dorun (pmap dochunk chunks))
-         rows))
-     paths-vec
-       (->>
-         (for [b nodes] (paths [a b] inf)) vec atom
-         (for [a nodes] ,,) vec)
-     answer-vec
-       (reduce new-row paths-vec nodes)
+         (fn [a b] (@(rows a) b))))
+
+     soln (reduce new-row graph-by-index indices)
+     soln-by-node
+       (fn [& args] (apply soln (map node-to-index args)))
     ]
-    (map-comp
-      [a nodes b nodes :let [dist (@(answer-vec a) b)] :when (not= dist inf)]
-      [[a b] dist])))
+    soln-by-node))
 
 (defn skiing-input []
   (let
@@ -71,23 +74,28 @@
   (let 
     [
      {:keys [v r c elevations]} (skiing-input)
+     points (cartesian-product (range r) (range c))
+
      initial-elev (elevations [0 0])
-     nodes (cartesian-product (range r) (range c))
-     velocity
+     velocity (fn [point]
+       (* v (expt 2 (- initial-elev (elevations point)))))
+
+     graph-map
        (map-comp
-         [[node elev] elevations]
-         [node (* v (expt 2 (- initial-elev elev)))])
-     to-idx (fn [[a b]] (+ (* a c) b))
-     paths
-       (map-comp
-         [start nodes
-          end   (map #(map + start %) [[-1 0] [0 -1] [0 1] [1 0]])
-          :when (every? identity (map #(< -1 %1 %2) end [r c]))
+         [start points
+          delta [[-1 0] [0 -1] [0 1] [1 0]]
+          :let [[x y :as end] (map + start delta)]
+          :when (and (< -1 x r) (< -1 y c))
          ]
-         [[(to-idx start) (to-idx end)] (/ 1 (velocity start))])
-     time  (floyd-warshall (map to-idx nodes) paths)
+         (let [segment [start end]
+               time (/ 1 (velocity start))]
+           [segment time]))
+
+     graph (fn [a b] (graph-map [a b] inf))
+
+     soln (floyd-warshall points graph)
     ]
-    (println (time [(to-idx [0 0]) (to-idx [(dec r) (dec c)])]))
+    (println (soln [0 0] [(dec r) (dec c)]))
     (shutdown-agents)))
 
 (skiing)
