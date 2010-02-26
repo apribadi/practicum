@@ -1,14 +1,11 @@
 (ns skiing
-  (:use 
-    [clojure.contrib.seq-utils]
-    [clojure.contrib.combinatorics]
-    [clojure.contrib.math])
-  (:require
-    [clojure.contrib.str-utils2 :as string]))
-
-; constants
-(def inf Float/POSITIVE_INFINITY)
-(def *threads* 4)
+  (:use
+    (clojure.contrib 
+      core
+      [seq           :only (partition-all group-by)]
+      [combinatorics :only (cartesian-product)]
+      [math          :only (ceil expt)]
+      [string        :only (split)])))
 
 ; utility functions
 (defmacro map-comp [& args]
@@ -18,7 +15,11 @@
   `(doall (for ~@args)))
 
 (defn int-list []
-  (ffor [s (string/split (read-line) #"\s+")] (Integer/parseInt s)))
+  (ffor [s (split #"\s+" (read-line))] (Integer/parseInt s)))
+
+; constants
+(def inf Float/POSITIVE_INFINITY)
+(def *threads* 4)
 
 
 (defn floyd-warshall [nodes graph]
