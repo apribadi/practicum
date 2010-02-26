@@ -17,41 +17,50 @@
 (defn int-list []
   (ffor [s (split #"\s+" (read-line))] (Integer/parseInt s)))
 
+(defprotocol Graph
+  (node-set [self])
+  (path [self a b]))
+
+
 ; constants
 (def inf Float/POSITIVE_INFINITY)
 (def *threads* 4)
 
 
-(defn floyd-warshall [nodes graph]
+(defn floyd-warshall [graph]
   (let
     [
-     n (count nodes)
-     indices (range n)
+     nodes         (node-set graph)
+     indices       (range (count nodes))
      node-to-index (zipmap nodes indices)
      index-to-node (zipmap indices nodes)
-
-     chunk-size (-> (/ n *threads*) ceil int)
-     chunks     (partition-all chunk-size indices)
+     chunk-size    (-> (/ (count indices) *threads*) ceil int)
+     chunks        (partition-all chunk-size indices)
     
-     graph-by-index 
-       (fn [& args] (apply graph (map index-to-node args)))
+     graph-by-index (reify Graph
+       (path [a b] (path graph (index-to-node a) (index-to-node b))))
 
-     new-row (fn [prev k]
+     step (fn [prev k]
        (let
          [rows (vec (for [_ indices] (atom nil)))
 
+          make-row (fn [a]
+            (vec (for [b indices]
+                   (min (path prev a b)
+                        (+ (path prev a k) (path prev k b))))))
+
           dochunk (fn [chunk]
             (doseq [a chunk]
-              (reset! (rows a)
-                (vec (for [b indices] 
-                       (min (prev a b) (+ (prev a k) (prev k b))))))))
+              (reset! (rows a) (make-row a))))
          ]
          (dorun (pmap dochunk chunks))
-         (fn [a b] (@(rows a) b))))
+         (reify Graph (path [a b] (@(rows a) b)))))
 
-     soln (reduce new-row graph-by-index indices)
-     soln-by-node
-       (fn [& args] (apply soln (map node-to-index args)))
+     soln (reduce step graph-by-index indices)
+
+     soln-by-node (reify Graph
+       (node-set [] nodes)
+       (path [a b] (path soln (node-to-index a) (node-to-index b))))
     ]
     soln-by-node))
 
@@ -75,9 +84,10 @@
   (let 
     [
      {:keys [v r c elevations]} (skiing-input)
-     points (cartesian-product (range r) (range c))
 
+     points (cartesian-product (range r) (range c))
      initial-elev (elevations [0 0])
+
      velocity (fn [point]
        (* v (expt 2 (- initial-elev (elevations point)))))
 
@@ -92,11 +102,13 @@
                time (/ 1 (velocity start))]
            [segment time]))
 
-     graph (fn [a b] (graph-map [a b] inf))
+     graph (reify Graph
+       (node-set [] points)
+       (path [a b] (graph-map [a b] inf)))
 
-     soln (floyd-warshall points graph)
+     soln (floyd-warshall graph)
     ]
-    (println (soln [0 0] [(dec r) (dec c)]))
+    (println (float (path soln [0 0] [(dec r) (dec c)])))
     (shutdown-agents)))
 
 (skiing)
