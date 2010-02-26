@@ -1,0 +1,15 @@
+35a36
+> sub LANG_CLOJURE { 11 }
+109a111,112
+> } elsif ( $suffix eq ".clj" ) {
+>     $lang = LANG_CLOJURE;
+114c117
+< print "  Language used: ", ("C","C++","Java","Python","Perl","PHP","Ruby","Haskell","C#","Postscript","Lua")[$lang], "\n\n";
+---
+> print "  Language used: ", ("C","C++","Java","Python","Perl","PHP","Ruby","Haskell","C#","Postscript","Lua","Clojure")[$lang], "\n\n";
+165a169,173
+> } elsif ( $lang == LANG_CLOJURE ) {
+> 	my $clj_dir = "/home/dodds/public_html/ACM"
+> 	my $classpath = "$clj_dir/clojure.jar:$clj_dir/clojure-contrib.jar"
+> 	$runcmd = "java -cp $classpath clojure.main ./$submission.clj"
+>   $sourcefilename = $submission . ".clj";
