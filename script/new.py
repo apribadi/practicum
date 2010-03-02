@@ -15,11 +15,12 @@ import re
 import sys
 
 from glob import glob
+from itertools import ifilter, izip_longest
 from subprocess import Popen, check_call, PIPE
 
 
 # configuration
-test_dir = "/cs/ACM/Tests/Spring09
+test_dir = "/cs/ACM/Tests/Spring09"
 
 def usage():
     print "Usage: /cs/ACM/acmSubmit <filename>"
@@ -100,7 +101,7 @@ if __name__ == "__main__":
         usage()
         sys.exit("No file given")
 
-    file = argv[1]
+    file = sys.argv[1]
     name, ext = path.splitext(path.basename(file))
 
     if name not in problems:
@@ -116,7 +117,7 @@ if __name__ == "__main__":
     # and accepts input from stdin
     runcmd = languages[ext](file, name, ext)
 
-    # list of the file names of the test cases
+    # test_files: index -> { in: file, out: file }
     test_files = {}
 
     for test_file in glob(path.join(test_dir, name, "*")):
@@ -129,7 +130,9 @@ if __name__ == "__main__":
     test_files = dict(kv for kv in test_files.iteritems()
                          if 'in' in kv[1] and 'out' in kv[1])
 
+    # testing starts here!
     print "Testing %s ..." % name
+    print
 
     failed = False
 
@@ -140,7 +143,7 @@ if __name__ == "__main__":
         output_file = test_files[index]["out"]
 
         sub = Popen(
-            "%s < %s" % (runcmd, test_input),
+            "%s < %s" % (runcmd, input_file),
             shell=True,
             stdout=PIPE
             )
@@ -153,22 +156,29 @@ if __name__ == "__main__":
         for given, solution in izip_longest(givens, solutions):
             if given is None:
                 failed = True
+		print
                 print "Your submission's output was too short"
                 break
             if given != solution:
                 failed = True
-                print "Your output line: %s" % given
-                print "The solution line: %s" % solution
+		print
+                print "Your output line: %s" % given.strip()
+                print "The solution line: %s" % solution.strip()
+		break
 
-        p.terminate()
+        sub.terminate()
         f.close()
 
         if failed:
             break
 
     if failed:
+	print
         print "Your output differed from the expected output."
+	print
     else:
+	print
         print "-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+"
         print "Congratulations! You've completed the %s problem." % name
         print "-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+"
+	print
