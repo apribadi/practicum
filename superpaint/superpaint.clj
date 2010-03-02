@@ -3,7 +3,7 @@
     (clojure.contrib 
       core
       [seq           :only (partition-all group-by)]
-      [combinatorics :only (cartesian-product)]
+      [combinatorics :only (cartesian-product subsets)]
       [math          :only (ceil expt abs)]
       [string        :only (split)]))
   (:import
@@ -11,13 +11,14 @@
 )
 
 
-; utility functions
-(defmacro map-comp [& args]
+; utility definitions
+(defmacro hash-c [& args]
   `(->> (for ~@args) (apply concat ,,) (apply hash-map ,,)))
 
-(defmacro ffor [& args] `(doall (for ~@args)))
+(defmacro ffor [& args]
+  `(doall (for ~@args)))
 
-(defn line-list []
+(defn parse-line []
   (ffor [s (split #"\s+" (read-line))] (read-string s)))
 
 ; superpaint
@@ -28,16 +29,15 @@
         dy (- y v)]
     (or (= 0 dx) (= 0 dy) (= (abs dx) (abs dy)))))
 
-(defn superpaint []
+(defn main []
   (let
     [
-     [n k] (line-list)
-     cows  (ffor [_ (range k)] (line-list))
-     good? (fn [square]
-       (every? #(can-hit? square %) cows))
+     [n k]   (parse-line)
+     cows    (ffor [_ (range k)] (parse-line))
+     good?   (fn [square] (every? #(can-hit? square %) cows))
      squares (cartesian-product (range 1 (inc n)) (range 1 (inc n)))
     ]
     (println (count (filter good? squares)))))
 
-(superpaint)
+(main)
 

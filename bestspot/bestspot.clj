@@ -1,10 +1,10 @@
 (ns bestspot
   (:use 
-    [clojure.contrib.seq-utils]
+    [clojure.contrib.seq]
     [clojure.contrib.combinatorics]
     [clojure.contrib.generic.math-functions])
   (:require
-    [clojure.contrib.str-utils2 :as string]))
+    [clojure.contrib.string :as string]))
 
 ; constants
 (def *threads* 4)
@@ -19,7 +19,7 @@
 
 (defn int-list []
   "Read a line of input of space-separated integers.  Strict."
-  (ffor [s (string/split (read-line) #"\s+")] (Integer/parseInt s)))
+  (ffor [s (string/split #"\s+" (read-line))] (Integer/parseInt s)))
 
 
 (defn floyd-warshall [nodes paths]

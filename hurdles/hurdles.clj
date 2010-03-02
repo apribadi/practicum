@@ -1,49 +1,93 @@
 (ns hurdles
-  (:use 
-    [clojure.contrib.seq-utils]
-    [clojure.contrib.combinatorics]
-    [clojure.contrib.generic.math-functions])
-  (:require
-    [clojure.contrib.str-utils2 :as string]))
+  (:use
+    (clojure.contrib 
+      core
+      [seq           :only (partition-all group-by)]
+      [combinatorics :only (cartesian-product)]
+      [math          :only (ceil expt)]
+      [string        :only (split)])))
 
-(defn int-list []
-  "Read a line of input of space-separated integers.  Strict."
-  (doall (for [s (string/split (read-line) #"\s+")] (Integer/parseInt s))))
-
+; utility functions
 (defmacro map-comp [& args]
   `(->> (for ~@args) (apply concat ,,) (apply hash-map ,,)))
 
-(defmacro for-times [[i times] & args]
-  `(doall (for [~i (range ~times)] ~@args)))
+(defmacro ffor [& args]
+  `(doall (for ~@args)))
 
+(defn int-list []
+  (ffor [s (split #"\s+" (read-line))] (Integer/parseInt s)))
 
+; constants
 (def inf Float/POSITIVE_INFINITY)
+(def *threads* 4)
 
-(defn floyd-warshall [nodes paths node-count]
-  (letfn 
-    [(new-row [distance k]
-       (map-comp
-         [a nodes :let [a-dist (distance [a k])] :when a-dist
-          b nodes :let [b-dist (distance [k b])] :when b-dist]
-         [[a b] (+ a-dist b-dist)]))
+
+(defn floyd-warshall [nodes graph]
+  (let
+    [
+     n (count nodes)
+     indices (range n)
+     node-to-index (zipmap nodes indices)
+     index-to-node (zipmap indices nodes)
+
+     chunk-size (-> (/ n *threads*) ceil int)
+     chunks     (partition-all chunk-size indices)
+    
+     graph-by-index 
+       (fn [& args] (apply graph (map index-to-node args)))
+
+     new-row (fn [prev k]
+       (let
+         [rows (vec (for [_ indices] (atom nil)))
+
+          dochunk (fn [chunk]
+            (doseq [a chunk]
+              (reset! (rows a)
+                (vec (for [b indices] 
+                       (min (prev a b) (+ (prev a k) (prev k b))))))))
+         ]
+         (dorun (pmap dochunk chunks))
+         (fn [a b] (@(rows a) b))))
+
+     soln (reduce new-row graph-by-index indices)
+     soln-by-node
+       (fn [& args] (apply soln (map node-to-index args)))
     ]
-    (reduce new-row paths nodes)))
+    soln-by-node))
+
+(defn skiing-input []
+  (let
+    [global (atom {})
+     add   #(swap! global assoc ,, %1 %2)
+     add-m #(swap! global merge ,, %)
+    ]
+    (add-m 
+      (zipmap [:v :r :c] (int-list)))
+    (add :elevations
+      (map-comp
+        [row (range (@global :r)) :let [nums (vec (int-list))]
+         col (range (@global :c)) :let [elv  (nums col)]
+        ]
+        [[row col] elv]))
+    @global))
 
 (defn hurdles-input []
-  (let [inputs (atom {})
-        in-assoc (fn [key val] (swap! inputs assoc key val))
-        in-merge (fn [m] (swap! inputs merge ,, m)
-        get (fn [key] (@inputs key))]
-    (in-merge 
+  (let
+    [global (atom {})
+     add   #(swap! global assoc ,, %1 %2)
+     add-m #(swap! global merge ,, %)
+    ]
+    (add-m 
       (zipmap [:n :m :t] (int-list)))
-    (in-assoc :favorites
-      (for-times [_ (get :f)] (first (int-list)))))))uu
-    (->>
-      [[a b] t]
-      (let [[a b t] (int-list)] ,,)
-      (map-comp [_ (range (get :c))] ,,)
-      (put :paths-one-way ,,))
-    @inputs))
+    (add :paths
+      (map-comp [_ (range (@global m)] 
+        (let [[s e h] (int-list)] [[s e] h]))
+      (for-times [_ (get :f)] (first (int-list))))
+    (add :paths-one-way
+      (map-comp [_ (range @global :c)]
+        (let [[a b t] (int-list)] 
+          [[a b] t])))
+    @global))
 
 (let [[n m t] (int-list)
       paths   (map-comp [_ (range m)] (let [[s e h] (int-list)] [[s e] h]))
@@ -57,37 +101,33 @@
         (println answer)
         (println -1)))))
 
-
-(defmacro map-comp [& args]
-  `(->> (for ~@args) (apply concat ,,) (apply hash-map ,,)))
-
-(def inf Float/POSITIVE_INFINITY)
-
-
-
-(defn bestspot []
+(defn skiing []
   (let 
     [
-     {:keys [p f c favorites paths-one-way]} (bestspot-input)
-     nodes  (range 1 (inc p))
-     paths  (merge 
-              paths-one-way
-              (map-comp [[[a b] t] paths-one-way] [[b a] t])
-              (map-comp [a nodes] [[a a] 0]))
-     times  (floyd-warshall nodes paths p)
-     totals (->
-              #(apply + (for [b favorites] (times [% b] inf)))
-              (group-by ,, nodes))
-     best   (->> 
-              (keys totals) 
-              (apply min ,,) 
-              (totals ,,)
-              (apply min ,,))
+     {:keys [v r c elevations]} (skiing-input)
+     points (cartesian-product (range r) (range c))
+
+     initial-elev (elevations [0 0])
+     velocity (fn [point]
+       (* v (expt 2 (- initial-elev (elevations point)))))
+
+     graph-map
+       (map-comp
+         [start points
+          delta [[-1 0] [0 -1] [0 1] [1 0]]
+          :let [[x y :as end] (map + start delta)]
+          :when (and (< -1 x r) (< -1 y c))
+         ]
+         (let [segment [start end]
+               time (/ 1 (velocity start))]
+           [segment time]))
+
+     graph (fn [a b] (graph-map [a b] inf))
+
+     soln (floyd-warshall points graph)
     ]
-;    (println (* p p))
-;    (println totals)
-    (println best)
+    (println (soln [0 0] [(dec r) (dec c)]))
     (shutdown-agents)))
 
-(bestspot)
+(skiing)
 
