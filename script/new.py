@@ -9,93 +9,86 @@
 #
 # Usage: /cs/ACM/acmSubmit <submission name>
 
-import contextlib
 import os.path as path
 import re
 import sys
 
 from glob import glob
 from itertools import ifilter, izip_longest
+from string import Template
 from subprocess import Popen, check_call, PIPE
 
 
 # configuration
-test_dir = "/cs/ACM/Tests/Spring09"
 
-def usage():
-    print "Usage: /cs/ACM/acmSubmit <filename>"
-    print "Where <filename> is one of:"
-    for problem in sorted(glob(test_dir + "/*")):
-        print problem
+TEST_DIR = '/cs/ACM/Tests/Spring09'
 
-# languages
-languages = {}
+# The language of a given file is determined by its extension.  The commands in
+# compile are run in order.  The runcmd is run in a shell, taking input from
+# stdin.
+#
+# The compile and runcmd strings are interpolated with $file (the path to the
+# submitted file) and $name (the name of the problem) available.
 
-def handles(suffix):  
-    def set_as_handler(func):
-        languages[suffix] = func
-        return func
-    return set_as_handler
+language_config = [
+    { 'ext':     '.c',
+      'compile':  [ 'gcc $file -o $name -lm' ],
+      'runcmd':  './$name'
+    },
+    { 'ext':     '.cs',
+      'compile':  [ 'gmcs $file' ],
+      'runcmd':  'mono $(name).exe'
+    },
+    { 'ext':     '.cc',
+      'compile':  [ 'g++ $file -o $name' ],
+      'runcmd': './$name'
+    },
+    { 'ext':     '.java',
+      'compile':  [ 'javac -cp . $file' ],
+      'runcmd':  'java -cp . $name'
+    },
+    { 'ext':     '.hs',
+      'compile':  [ 'ghc -O --make $file -o $name' ],
+      'runcmd':  './$name'
+    },
+    { 'ext':     '.py',
+      'runcmd':  'python $file'
+    },
+    { 'ext':     '.pl',
+      'runcmd':  'perl $file'
+    },
+    { 'ext':     '.php',
+      'runcmd':  'php $file'
+    },
+    { 'ext':     '.ps',
+      'runcmd':  'gs -dNODISPLAY -dNOPROMPT -q $file'
+    },
+    { 'ext':     '.rb',
+      'runcmd':  'ruby $file'
+    },
+    { 'ext':     '.lua',
+      'runcmd':  'lua $file'
+    },
+    { 'ext':     '.clj',
+      'runcmd':  'java -cp clojure.jar:clojure-contrib.jar clojure.main $file'
+    }
+    ]
 
-@handles(".c")
-def c_lang(file, name, ext):
-    check_call("gcc %(file)s -o %(name)s -lm" % locals(), shell=True)
-    return "./%(name)s" % locals()
+languages = dict((lang['ext'], lang) for lang in language_config)
+    
 
-@handles(".cs")
-def c_sharp(file, name, ext):
-    check_call("gmcs %(file)s" % locals(), shell=True)
-    return "mono ./%(name)s.exe" % locals()
+# script
 
-@handles(".cc")
-def cplusplus(file, name, ext):
-    check_call("g++ %(file)s -o %(name)s" % locals(), shell=True)
-    return "./%(name)s" % locals()
+if __name__ == '__main__':
+    print "acmSubmit (Version 2010)"
 
-@handles(".java")
-def java(file, name, ext):
-    check_call("javac -cp . %(file)s" % locals(), shell=True)
-    return "java -cp . %(name)s" % locals()
+    problems = [path.basename(p) for p in glob(path.join(TEST_DIR, '*'))]
 
-@handles(".hs")
-def java(file, name, ext):
-    check_call("ghc -O --make %(file)s -o %(name)s" % locals(), shell=True)
-    return "./%(name)s" % locals()
-
-@handles(".py")
-def python(file, name, ext):
-    return "python %(file)s" % locals()
-
-@handles(".pl")
-def perl(file, name, ext):
-    return "perl %(file)s" % locals()
-
-@handles(".php")
-def php(file, name, ext):
-    return "php ./%s" % locals()
-
-@handles(".ps")
-def postscript(file, name, ext):
-    return "gs -dNODISPLAY -dNOPROMPT -q ./%(file)s" % locals()
-
-@handles(".rb")
-def ruby(file, name, ext):
-    return "ruby %(file)s" % locals()
-
-@handles(".lua")
-def lua(file, name, ext):
-    return "lua ./%(file)s" % locals()
-
-@handles(".clj")
-def clojure(file, name, ext):
-	dir = "/home/dodds/public_html/ACM"
-	classpath = "%(dir)s/clojure.jar:%(dir)s/clojure-contrib.jar" % locals()
-	return "java -cp %(classpath)s clojure.main %(file)s" % locals()
-
-if __name__ == "__main__":
-    print "acmSubmit (Version 2010)\n"
-
-    problems = [path.basename(p) for p in glob(path.join(test_dir, "*"))]
+    def usage():
+        print "Usage: /cs/ACM/acmSubmit <filename>"
+        print "Where <filename> is one of:"
+        for problem in problems:
+            print problem
 
     if len(sys.argv) < 2:
         usage()
@@ -106,79 +99,84 @@ if __name__ == "__main__":
 
     if name not in problems:
         usage()
-        sys.exit("File name not valid")
+        sys.exit("Problem %s not found." % name)
 
     if ext not in languages:
         usage()
-        sys.exit("File extension not valid")
+        sys.exit("File extension  %s not usable." % ext)
 
-    # language-specific compilation, etc.
-    # runcmd is a string that may be run in a shell
-    # and accepts input from stdin
-    runcmd = languages[ext](file, name, ext)
+
+    # compilation, if any needed
+    if 'compile' in languages[ext]:
+        for cmd_t in languages[ext]['compile']:
+            cmd = Template(cmd_t).substitute({'file': file, 'name': name})
+            check_call(cmd)
 
     # test_files: index -> { in: file, out: file }
     test_files = {}
 
-    for test_file in glob(path.join(test_dir, name, "*")):
-        match = re.search("([0-9]+)\.(\w+)\Z", test_file)
-        if match:
-            index = int(match.group(1))
-            suffix = match.group(2)
-            test_files.setdefault(index, {})[suffix] = test_file
+    for test_file in glob(path.join(TEST_DIR, name, '*')):
+        match = re.search('([0-9]+)\.(\w+)\Z', test_file)
+        if not match:
+            continue
+        index = int(match.group(1))
+        suffix = match.group(2)
+        if index not in test_files:
+            test_files[index] = {}
+        test_files[index][suffix] = test_file
 
-    test_files = dict(kv for kv in test_files.iteritems()
-                         if 'in' in kv[1] and 'out' in kv[1])
+    for index, files in test_files.items():
+        if 'in' not in files or 'out' not in files:
+            del test_files[index]
 
-    # testing starts here!
+    # testing starts here
     print "Testing %s ..." % name
     print
 
     failed = False
 
-    for index in sorted(test_files.iterkeys()):
+    for index in sorted(test_files.keys()):
+        if failed:
+            break
+
         print "Running test %d ..." % index
 
-        input_file = test_files[index]["in"]
-        output_file = test_files[index]["out"]
-
         sub = Popen(
-            "%s < %s" % (runcmd, input_file),
+            '%s < %s' % (runcmd, test_files[index]['in']),
             shell=True,
             stdout=PIPE
             )
             
-        f = open(output_file, "r")
+        answer_file = open(test_files[index]['out'], 'r')
 
-        givens = ifilter(lambda s: s.strip() != "", sub.stdout)
-        solutions = ifilter(lambda s: s.strip() != "", f)
+        givens  = (line.strip() for line in sub.stdout if line.strip() != '')
+        answers = (line.strip() for line in answer_file if line.strip() != '')
 
-        for given, solution in izip_longest(givens, solutions):
+        for given, answer in izip_longest(givens, answers):
+            if given == answer:
+                continue
+
+            failed = True
+            print ""
             if given is None:
-                failed = True
-		print
                 print "Your submission's output was too short"
-                break
-            if given != solution:
-                failed = True
-		print
+            elif answer is None:
+                print "Your submission's output was too long"
+            else 
                 print "Your output line: %s" % given.strip()
                 print "The solution line: %s" % solution.strip()
-		break
-
-        sub.terminate()
-        f.close()
-
-        if failed:
             break
 
+        answer_file.close()
+
     if failed:
-	print
+        print
         print "Your output differed from the expected output."
-	print
+        print
+
     else:
-	print
+        print
         print "-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+"
         print "Congratulations! You've completed the %s problem." % name
         print "-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+"
-	print
+        print
