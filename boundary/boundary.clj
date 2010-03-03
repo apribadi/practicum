@@ -55,7 +55,10 @@
               (for [x [0 n] y (range (inc n))] (Point x y))
               (for [x (range 1 n) y [0 n]] (Point x y)))
     ]
-    (println (count (filter #(clear? bob % lines) border)))))
+    (println (apply + 
+      (pmap (fn [chunk] (count (filter #(clear? bob % lines) chunk)))
+            (partition-all 4 border))))
+	    (shutdown-agents)))
 
 (main)
 
