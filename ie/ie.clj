@@ -21,6 +21,9 @@
 (defn parse-line []
   (ffor [s (split #"\s+" (read-line))] (read-string s)))
 
+(defn parse-line-float []
+  (ffor [s (split #"\s+" (read-line))] (Double/parseDouble s)))
+
 (defn sum [coll] (apply + coll))
 
 
@@ -40,9 +43,9 @@
     [
      [n m] (parse-line)
 
-     stores     (ffor [_ (range n) :let [[x y] (parse-line)]]
+     stores     (ffor [_ (range n) :let [[x y] (parse-line-float)]]
                   (Point x y))
-     warehouses (ffor [_ (range m) :let [[x y p] (parse-line)]]
+     warehouses (ffor [_ (range m) :let [[x y p] (parse-line-float)]]
                   {:cost p :location (Point x y)})
      wh-sets    (filter (complement empty?) (subsets warehouses))
      costs      (for [wh-set wh-sets] (cost stores wh-set))

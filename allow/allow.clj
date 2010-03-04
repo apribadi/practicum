@@ -1,18 +1,31 @@
 (ns allow
-  (:use [clojure.contrib.seq-utils]
-        [clojure.contrib.combinatorics]))
+  (:use
+    (clojure.contrib 
+      core
+      [seq           :only (partition-all group-by)]
+      [combinatorics :only (cartesian-product subsets)]
+      [math          :only (ceil expt abs)]
+      [string        :only (split)]))
+  (:import
+    (java.awt.geom Line2D$Double Point2D$Double))
+)
 
-(defn map-from-pairs [pairs]
-  (apply hash-map (apply concat pairs)))
+; utility definitions
+(defmacro hash-c [& args]
+  `(->> (for ~@args) (apply concat ,,) (apply hash-map ,,)))
 
-(defmacro map-comp [& args]
-  `(map-from-pairs (for ~@args)))
+(defmacro ffor [& args]
+  `(doall (for ~@args)))
 
-(defn int-list []
-  (for [s (.split (read-line) " ")] (Integer/parseInt s)))
+(defn parse-line []
+  (ffor [s (split #"\s+" (read-line))] (read-string s)))
 
-(let [[n c] (int-list)
-      coins   (atom (map-comp [_ (range n)] (int-list)))
+(defn parse-line-float []
+  (ffor [s (split #"\s+" (read-line))] (Double/parseDouble s)))
+
+
+(let [[n c] (parse-line)
+      coins   (atom (hash-c [_ (range n)] (parse-line)))
       buckets (atom 0)
       needed  (atom 0)
      ]
