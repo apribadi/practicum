@@ -21,6 +21,9 @@
 (defn parse-line []
   (ffor [s (split #"\s+" (read-line))] (read-string s)))
 
+(defn parse-line-double []
+  (ffor [s (split #"\s+" (read-line))] (Double/parseDouble s)))
+
 
 ; solution
 (defn Line [a b] (new Line2D$Double a b))
@@ -39,9 +42,9 @@
   (let
     [
      [n r p] (parse-line)
-     corners (ffor [_ (range n)] (apply Point (parse-line)))
-     routers (ffor [_ (range r)] (apply Point (parse-line)))
-     points  (ffor [_ (range p)] (apply Point (parse-line)))
+     corners (ffor [_ (range n)] (apply Point (parse-line-double)))
+     routers (ffor [_ (range r)] (apply Point (parse-line-double)))
+     points  (ffor [_ (range p)] (apply Point (parse-line-double)))
 
      walls (map #(apply Line %) (partition 2 1 (cons (last corners) corners)))
      walls (map Line corners (cons (last corners) corners))
@@ -55,7 +58,7 @@
 (defn main []
   (let [[k] (parse-line)]
     (dotimes [set-index k]
-      (do-set set-index))))
+      (do-set (inc set-index)))))
 
 (main)
 

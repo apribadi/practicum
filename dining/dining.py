@@ -81,6 +81,7 @@ if __name__ == '__main__':
         drinks = xs[2 + xs[0] : 2 + xs[0] + xs[1]]
         cows.append((foods, drinks))
 
+    print "asdf"
     print solve(n, f, d, cows)
 
 

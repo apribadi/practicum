@@ -80,7 +80,7 @@
         [[row col] elv]))
     @global))
 
-(defn skiing []
+(defn main []
   (let 
     [
      {:keys [v r c elevations]} (skiing-input)
@@ -107,9 +107,10 @@
        (path [a b] (graph-map [a b] inf)))
 
      soln (floyd-warshall graph)
+
+     best (path soln [0 0] [(dec r) (dec c)])
     ]
-    (println (float (path soln [0 0] [(dec r) (dec c)])))
+    (printf "%.2f\n" (if (= best inf) 0.00 (float best)))
     (shutdown-agents)))
 
-(skiing)
-
+(main)
