@@ -3,131 +3,90 @@
     (clojure.contrib 
       core
       [seq           :only (partition-all group-by)]
-      [combinatorics :only (cartesian-product)]
-      [math          :only (ceil expt)]
-      [string        :only (split)])))
+      [combinatorics :only (cartesian-product subsets)]
+      [math          :only (ceil expt abs)]
+      [string        :only (split)]))
+  (:import
+    (java.awt.geom Line2D$Double Point2D$Double))
+)
 
-; utility functions
-(defmacro map-comp [& args]
+
+; utility definitions
+(defmacro hash-c [& args]
   `(->> (for ~@args) (apply concat ,,) (apply hash-map ,,)))
-
 (defmacro ffor [& args]
   `(doall (for ~@args)))
+(defn parse-line []
+  (ffor [s (split #"\s+" (read-line))] (read-string s)))
+(defn parse-line-float []
+  (ffor [s (split #"\s+" (read-line))] (Double/parseDouble s)))
+(defn sum [coll] (apply + coll))
 
-(defn int-list []
-  (ffor [s (split #"\s+" (read-line))] (Integer/parseInt s)))
+(defprotocol Graph
+  (node-set [self])
+  (path [self a b]))
 
 ; constants
 (def inf Float/POSITIVE_INFINITY)
 (def *threads* 4)
 
 
-(defn floyd-warshall [nodes graph]
+; modified to take the max rather than sum
+(defn floyd-warshall [graph]
   (let
     [
-     n (count nodes)
-     indices (range n)
+     nodes         (node-set graph)
+     indices       (range (count nodes))
      node-to-index (zipmap nodes indices)
      index-to-node (zipmap indices nodes)
-
-     chunk-size (-> (/ n *threads*) ceil int)
-     chunks     (partition-all chunk-size indices)
+     chunk-size    (-> (/ (count indices) *threads*) ceil int)
+     chunks        (partition-all chunk-size indices)
     
-     graph-by-index 
-       (fn [& args] (apply graph (map index-to-node args)))
+     graph-by-index (reify Graph
+       (path [a b] (path graph (index-to-node a) (index-to-node b))))
 
-     new-row (fn [prev k]
+     step (fn [prev k]
        (let
          [rows (vec (for [_ indices] (atom nil)))
 
+          make-row (fn [a]
+            (vec (for [b indices]
+                   (min (path prev a b)
+                        (max (path prev a k) (path prev k b))))))
+
           dochunk (fn [chunk]
             (doseq [a chunk]
-              (reset! (rows a)
-                (vec (for [b indices] 
-                       (min (prev a b) (+ (prev a k) (prev k b))))))))
+              (reset! (rows a) (make-row a))))
          ]
          (dorun (pmap dochunk chunks))
-         (fn [a b] (@(rows a) b))))
+         (reify Graph (path [a b] (@(rows a) b)))))
 
-     soln (reduce new-row graph-by-index indices)
-     soln-by-node
-       (fn [& args] (apply soln (map node-to-index args)))
+     soln (reduce step graph-by-index indices)
+
+     soln-by-node (reify Graph
+       (node-set [] nodes)
+       (path [a b] (path soln (node-to-index a) (node-to-index b))))
     ]
     soln-by-node))
 
-(defn skiing-input []
+
+(defn main []
   (let
-    [global (atom {})
-     add   #(swap! global assoc ,, %1 %2)
-     add-m #(swap! global merge ,, %)
+    [ [n m t]    (parse-line)
+      paths      (hash-c [_ (range m)] 
+                   (let [[s e h] (parse-line)] [[s e] h]))
+      tasks      (ffor [_ (range t)] (parse-line))
+
+      init-graph (reify Graph
+                   (node-set [] (range 1 (inc n)))
+                   (path [a b] (paths [a b] inf)))
+      heights    (floyd-warshall init-graph)
     ]
-    (add-m 
-      (zipmap [:v :r :c] (int-list)))
-    (add :elevations
-      (map-comp
-        [row (range (@global :r)) :let [nums (vec (int-list))]
-         col (range (@global :c)) :let [elv  (nums col)]
-        ]
-        [[row col] elv]))
-    @global))
-
-(defn hurdles-input []
-  (let
-    [global (atom {})
-     add   #(swap! global assoc ,, %1 %2)
-     add-m #(swap! global merge ,, %)
-    ]
-    (add-m 
-      (zipmap [:n :m :t] (int-list)))
-    (add :paths
-      (map-comp [_ (range (@global m)] 
-        (let [[s e h] (int-list)] [[s e] h]))
-      (for-times [_ (get :f)] (first (int-list))))
-    (add :paths-one-way
-      (map-comp [_ (range @global :c)]
-        (let [[a b t] (int-list)] 
-          [[a b] t])))
-    @global))
-
-(let [[n m t] (int-list)
-      paths   (map-comp [_ (range m)] (let [[s e h] (int-list)] [[s e] h]))
-      tasks   (doall (for [_ (range t)] (int-list)))
-      rule    (fn [prev a b k] (min (prev [a b] inf) (max (prev [a k] inf) (prev [k b] inf))))
-      heights (f-w (range 1 (inc n)) paths rule)
-     ]
-  (doseq [task tasks]
-    (let [answer (heights task inf)]
-      (if (< answer inf)
-        (println answer)
-        (println -1)))))
-
-(defn skiing []
-  (let 
-    [
-     {:keys [v r c elevations]} (skiing-input)
-     points (cartesian-product (range r) (range c))
-
-     initial-elev (elevations [0 0])
-     velocity (fn [point]
-       (* v (expt 2 (- initial-elev (elevations point)))))
-
-     graph-map
-       (map-comp
-         [start points
-          delta [[-1 0] [0 -1] [0 1] [1 0]]
-          :let [[x y :as end] (map + start delta)]
-          :when (and (< -1 x r) (< -1 y c))
-         ]
-         (let [segment [start end]
-               time (/ 1 (velocity start))]
-           [segment time]))
-
-     graph (fn [a b] (graph-map [a b] inf))
-
-     soln (floyd-warshall points graph)
-    ]
-    (println (soln [0 0] [(dec r) (dec c)]))
+    (doseq [[a b] tasks]
+      (let [height (path heights a b)]
+        (if (< height inf)
+          (println height)
+          (println -1))))
     (shutdown-agents)))
 
-(skiing)
-
+(main)
