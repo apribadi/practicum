@@ -13,19 +13,15 @@ for i in range(n):
     t, d = (int(s) for s in raw_input().split())
     cows.append(Cow(t, d))
 
-destroyed = [0]
-
-def step(time):
-    for cow in cows:
-        destroyed[0] += cow.damage * time
-
 cows.sort(key=lambda c: c.badness)
 
+destroyed = 0
+damage = sum(cow.damage for cow in cows)
 while cows:
     cow = cows.pop()
     time = 2 * cow.time
-    step(time)
-        
+    damage -= cow.damage
+    destroyed += time * damage
     
-print destroyed[0]
+print destroyed
 
