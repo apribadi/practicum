@@ -3,65 +3,62 @@ import itertools
 rcount, ccount = map(int, raw_input().split())
 scene = {}
 
+joe = set()
+passable = set()
+fire = set()
+
 for r in range(rcount):
     line = raw_input()
     for c, char in zip(range(ccount), line):
-        scene[r, c] = char
+        loc = (r, c)
+        if char != '#' and char != 'F':
+            passable.add(loc)
+        if char == 'J':
+            joe.add(loc)
+        if char == 'F':
+            fire.add(loc)
 
 def vadd(u, v):
-    return tuple(map(lambda x, y: x + y, u, v))
+    a, b = u
+    x, y = v
+    return (a + x, b + y)
 
 def in_bounds(u):
     r, c = u
     return 0 <= r < rcount and 0 <= c < ccount
 
 deltas = [(-1, 0), (0, -1), (0, 1), (1, 0)]
+def adjacent(here):
+    return [vadd(here, d) for d in deltas]
 
-def do():
-    joe = set()
-    passable = set()
-    fire = set()
 
-    for loc in scene.iterkeys():
-        thing = scene[loc]
-        if thing != '#' and thing != 'F':
-            passable.add(loc)
-        if thing == 'J':
-            joe.add(loc)
-        if thing == 'F':
-            fire.add(loc)
-
+def do(joe, fire, passable):
     for time in itertools.count(1):
         # set things on fire
         newfire = set()
         for here in fire:
-            for d in deltas:
-                there = vadd(here, d)
-                if in_bounds(there):
+            for there in adjacent(here):
+                if there in passable:
                     newfire.add(there)
-                    passable.discard(there)
-        fire.update(newfire)
-
+                    passable.remove(there)
+        fire = newfire
 
         # move joe
         newjoe = set()
-
         for here in joe:
-            for d in deltas:
-                there = vadd(here, d)
+            for there in adjacent(here):
                 if not in_bounds(there):
                     # escape !
                     return time
                 if there in passable:
                     newjoe.add(there)
-
         joe = newjoe
 
         # we're dead
         if not joe:
             return None
         
-res = do()
+res = do(joe, fire, passable)
 if res is None:
     print 'IMPOSSIBLE'
 else:
