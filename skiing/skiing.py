@@ -1,13 +1,15 @@
 import os.path as path
 import sys
 
-sys.path.insert(0, '/home/apribadi/09-10/practicum/sgraph')
+base = path.abspath('..')
+sys.path.insert(0, path.join(base, 'sgraph'))
 
 # source for sgraph at http://github.com/apribadi/sgraph
 from sgraph.graph import Digraph
 from sgraph.algorithm import dijkstra
 
 from itertools import product
+from operator import add
 
 
 def parse_line():
@@ -15,23 +17,22 @@ def parse_line():
 
 if __name__ == '__main__':
     v, r, c = parse_line()
-    elevs = [[int(c) for c in raw_input()] for row in xrange(r)]
-    initelev = elevs[0][0]
+    elev = [[int(s) for s in raw_input().split()] for row in xrange(r)]
 
-    def velo(point):
-        row, col = point
-        return v * (2 ** (initelev - elevs[row][col]))
-    points = product(range(r), range(c))
-    velos = dict((pt, velo(pt)) for pt in points)
-
+    def velo(pt):
+        row, col = pt
+        return float(v * (2 ** (elev[0][0] - elev[row][col])))
     def vec_add(u, v):
-        
+        return tuple(map(add, u, v))
+
+    points = [(row, col) for row, col in product(range(r), range(c))]
     deltas = [[-1, 0], [0, -1], [0, 1], [1, 0]]
 
-    for pt, delta in product(points, deltas):
-        vec_add
-    ]
-    (printf "%.2f\n" (if (= best inf) 0.00 (float best)))
-    (shutdown-agents)))
+    graph = Digraph()
 
-(main)
+    for pt, delta in product(points, deltas):
+        adj = vec_add(pt, delta)
+        if 0 <= adj[0] < r and 0 <= adj[1] < c:
+            graph[pt:adj] = 1 / velo(pt)
+
+    print "%.2f" % dijkstra(graph, (0,0), (r - 1, c - 1))
