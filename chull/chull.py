@@ -5,20 +5,22 @@ n = input()
 points = [raw_input().split() for i in range(n)]
 points = [(int(x), int(y)) for x, y, z in points if z == 'Y']
 
-first = min(points, key=lambda pt: (pt[1], pt[0]))
+first = min(points) # by x, then y
 
-ymin = [(x, y) for x, y in points if y == first[1]]
-rest = [(x, y) for x, y in points if y != first[1]]
+xmin = [(x, y) for x, y in points if x == first[0]]
+rest = [(x, y) for x, y in points if x != first[0]]
 
 def cotan(point):
     a, b = first
     x, y = point
     dx, dy = x - a, y - b
-    return float(dx) / float(dy)
+    return float(dy) / float(dx)
 
-ymin.sort(key=lambda pt: pt[0])
-rest.sort(key=lambda pt: -cotan(pt))
+xmin.sort(key=lambda pt: -pt[1])
+rest.sort(key=lambda pt: cotan(pt))
 
-for pt in itertools.chain(ymin, rest):
+print len(points)
+
+for pt in itertools.chain(xmin[-1:], rest, xmin[:-1]):
     x, y = pt
     print x, y
