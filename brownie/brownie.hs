@@ -3,7 +3,6 @@ module Main
     main
   ) where
 
-import Data.Array (listArray, (!))
 import Data.List (foldl')
 import Control.Monad (liftM)
 
@@ -24,14 +23,16 @@ score xss =
     in 
         foldl' f (0, 0) points
 
-
 lineOfInt :: IO [Int]
 lineOfInt = return . map read . words =<< getLine
 
 main :: IO ()
-main = do  
+main = do 
     [n] <- lineOfInt
-    xss <- sequence $ take n $ repeat lineOfInt
-    (a, b) <- return $ score xss
-    putStrLn $ show a ++ " " ++ show b
+    case n of 
+        0 -> return ()
+        n -> do
+            (a,b) <- return . score =<< (sequence . take n . repeat $ lineOfInt)
+            putStrLn $ show a ++ " " ++ show b
+            main
 
