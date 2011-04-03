@@ -1,17 +1,18 @@
+{-# LANGUAGE BangPatterns #-}
+
 module Main 
   (
     main
   ) where
 
 import qualified Data.List as List
-import Data.List (foldl', sort)
-import qualified Data.Map as Map
+import Data.List (foldl', unfoldr, sort)
 import qualified Data.Array as Array
 import Data.Array (Array, (!))
-import System.IO.Unsafe (unsafePerformIO)
+
 import Control.Monad (liftM)
+import System.IO.Unsafe (unsafePerformIO)
 import Control.Exception (assert)
-import qualified Data.Array as Array
 
 
 magic :: Int -> Maybe [Int]
@@ -20,28 +21,30 @@ magic p =
     let m    = spec p
         good = and [matches p m d | d <- [2..p-1]]
     in 
-        if good then Just [m!k|k<-[1..p-1]] else Nothing
+        if good then Just [m ! k | k <- [1..p-1]] else Nothing
 
 matches :: Int -> Array Int Int -> Int -> Bool
 matches p m d = 
-    (and [m ! k == m ! ((k * d) `mod` p) | k <- [1..p-1]])
-    || (and [m ! k /= m ! ((k * d) `mod` p) | k <- [1..p-1]])
+    (and [m ! k == m ! ((k * d) `mod` p) | k <- [1..p-1]]) || 
+    (and [m ! k /= m ! ((k * d) `mod` p) | k <- [1..p-1]])
 
-series p a n = series' p a n 1
-series' p a 0 acc = []
-series' p a n acc = acc : series' p a (n-1) q
-    where q = (acc * a) `mod` p
+-- gives list of a^0, a^1, ..., a^n-1, mod p
+powers :: Int -> Int -> Int -> [Int]
+powers p a n = unfoldr f (1, n)
+    where f (_, 0)   = Nothing
+          f (acc, m) = Just (acc, ((acc * a) `mod` p, m-1))
 
-
+-- finds a generator for the multiplicitive group Z_p*
+-- which always exists for prime p
 primitive :: Int -> Int
-primitive p =
-    let isPrimitive a = not . any (== 1) . tail $ series p a (p-1)
-    in  head . filter isPrimitive $ [1 .. p-1]
+primitive p = head . filter isPrimitive $ [1 .. p-1]
+    where isPrimitive a = not . any (== 1) . tail $ powers p a (p-1)
 
 spec :: Int -> Array Int Int
-spec p = 
-    let a = primitive p
-    in Array.array (1, p-1) $ zip (series p a (p-1)) [k `mod` 2 | k <- [0..p-2]]
+spec p = Array.array (1, p - 1) $ zip ak parities
+    where a = primitive p
+          ak = powers p a (p-1)
+          parities = cycle [0,1]
 
 lineOfInt :: IO [Int]
 lineOfInt = return . map read . words =<< getLine
@@ -53,5 +56,5 @@ main = do
         0 -> return ()
         n -> case magic n of
             Nothing -> (putStrLn "Impossible") >> main
-            Just xs -> (putStrLn . foldl (++) "" . map show $ xs) >> main
+            Just xs -> (putStrLn . concat . map show $ xs) >> main
 
