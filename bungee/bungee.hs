@@ -7,7 +7,9 @@ bungee k l s w
     | velocity k l s w > 10 = Killed
     | True                  = Survives
 
-energy   k l s w = 9.81 * w * s - (1/2) * k * (s - l)^2
+energy   k l s w 
+    | s - l > 0 = 9.81 * w * s - (1/2) * k * (s - l)^2
+    | True      = 9.82 * w * s
 velocity k l s w = sqrt (2 * (energy k l s w) / w)
 
 readLine :: (Read a) => IO [a]
